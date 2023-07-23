@@ -47,14 +47,14 @@
 				// 	console.log(js)
 				// })
 			    /* DO SOMETHING WITH workbook HERE */
-			    json.forEach(js => {
+			    json.slice(0,1).forEach(js => {
 					$.ajax({
 					    contentType: 'application/json',
 					    data: JSON.stringify(js),
 					    dataType: 'json',
 					    success: function(data){
 					        console.log(data);
-					        json2excel(data.data, js.date + "-" + js.GSTNO)
+					        json2excel(data.data, js.GSTNO + "-" + js.date)
 					    },
 					    error: function(error){
 					        console.log(error);
