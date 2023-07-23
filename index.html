@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>FB SALES</title>
+</head>
+<body>
+	<!-- jquery 3.6.4 -->
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+	<!-- use version 0.20.0 -->
+	<script lang="javascript" src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+	<script src="http://cdn.jsdelivr.net/g/filesaver.js"></script>
+	<script src="./assets/moment.min.js"></script>
+	<script type="text/javascript">
+		// const FileSaver = require('file-saver');
+		const num2date = (date) => {
+		  return moment(new Date(Math.round((date - 25569)*86400*1000))).format('YYYY-MM-DD');
+		}
+
+		const json2excel = (json, filename) => {
+			const EXCEL_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8';
+			const worksheet = XLSX.utils.json_to_sheet(json);
+			const workbook = { Sheets: { 'data': worksheet }, SheetNames: ['data'] };
+			const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+			const data = new Blob([excelBuffer], {
+		      type: EXCEL_TYPE
+		    });
+		    saveAs(data, filename);
+		}
+
+		const generatereport = () => {
+			let f = $("#gstfile")[0].files[0]
+			var reader = new FileReader();
+			  reader.onload = function(e) {
+			    var data = e.target.result;
+			    /* reader.readAsArrayBuffer(file) -> data will be an ArrayBuffer */
+			    var workbook = XLSX.read(data);
+			    const sheetname = workbook.SheetNames[0];
+			    let sheet = workbook.Sheets[sheetname]
+			    let json = XLSX.utils.sheet_to_json(sheet,);
+			    json = json.map(js => {
+			    	return {...js, date: num2date(js.Month)}
+			    })
+				console.log(sheet,json);
+				// json.forEach(js => {
+				// 	console.log(js)
+				// })
+			    /* DO SOMETHING WITH workbook HERE */
+			    json.forEach(js => {
+					$.ajax({
+					    contentType: 'application/json',
+					    data: JSON.stringify(js),
+					    dataType: 'json',
+					    success: function(data){
+					        console.log(data);
+					        json2excel(data.data, js.date + "-" + js.GSTNO)
+					    },
+					    error: function(error){
+					        console.log(error);
+					    },
+					    type: 'POST',
+					    url: '/generatereport'
+					});
+			    })
+			  };
+		  	reader.readAsArrayBuffer(f);
+		}
+	</script>
+	<div>
+		<input type="file" name="gst" id="gstfile">
+		<button onclick="generatereport()">Submit</button>
+	</div>
+</body>
+</html>
