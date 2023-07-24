@@ -53,14 +53,10 @@ app.post('/uploadreport', (req, res) => {
         order by newid() asc
 
         INSERT into items(name)
-        SELECT DISTINCT name FROM #sampledata
+        SELECT DISTINCT name FROM #sampledata WHERE name NOT IN (SELECT name from items)
 
         insert into itemdetails(name, price, tax)
-        SELECT name, price, gst from #sampledata
-
-        SELECT name, d.spreadamt, d.gst/2, d.gst/2, c.id, '2023-07-23', GETDATE() FROM @data d
-        join companys c on c.gstno = d.gstno
-        order by NEWID() asc
+        SELECT name, price, gst from #sampledata WHERE name NOT IN (SELECT name from itemdetails)
         `
 
         req.query(temptable + query, (err2, recordset) => {
