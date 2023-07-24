@@ -6,7 +6,8 @@ const path = require('path');
 const sql = require('mssql');
 const retaildb = require('mssql')
 const connstr = "Data Source=biz1server.database.windows.net;Initial Catalog=biz1pos;Persist Security Info=True;User ID=dbadmin;Password=B1zd0m##;MultipleActiveResultSets=True"
-const retailconnstr = "Server=tcp:biz1server.database.windows.net,1433;Initial Catalog=biz1pos;Persist Security Info=False;User ID=dbadmin;Password=B1zd0m##;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+const retailconnstr = "Server=tcp:biz1server.database.windows.net,1433;Initial Catalog=biz1retaildb;Persist Security Info=False;User ID=dbadmin;Password=B1zd0m##;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+const axios = require('axios')
 app.use(bodyParser.json());
 app.use('/assets', express.static('assets'))
 
@@ -25,48 +26,57 @@ app.get('/', (req, res) => {
 })
 
 const retaildbqr = (data, config) => {
-    retaildb.connect(retailconnstr, (err) => {
-        if(err) {return}
-        var req = new retaildb.Request();
-        let datetime = new Date()
-        datetime.setDate(1)
-        datetime.setMonth(new Date(config.date).getMonth()+1)
-        datetime = moment(datetime).format('YYYY-MM-DDThh:mm')
-        let temptable  = ``
-        data.forEach((dt, i) => {
-            temptable += `select ${i+1} i, '${dt.product}' name, ${dt.price} price, ${dt.amount} amount, ${dt.gst} gst ${i==0 ? 'into #sampledata' : ''}\n`
-            if(i < (data.length-1))
-                temptable += `union all\n`
-        })
-        // console.log(temptable)
-        let query = `
-            exec dbo.datapopulate
-        `
-        req.query(temptable + query, (err2, recordset) => {
-            if(err2) {
-                console.log(err2)
-                return
-            }
-            console.log(recordset)
-        })
+    axios.post("http://localhost:6000/uploadreport", {
+      data: data,
+      config: config
     })
+    .then((response) => {
+      console.log(response);
+    })
+    .catch((error) => {
+        console.log(error)
+    });
 }
 
 app.post('/generatereport', (req, res) => {
-    console.log(req.body)
+    console.log("index.js line: 56", req.body)
     const b = req.body
     sql.connect(connstr, (err1) => {
         if(err1) {
-            res.send({status: 0, data: [], msg: "failed to connect db."})
+            res.send({status: 0, data: [], msg: "failed to connect db.", error: err1})
+            return
         }
         var request = new sql.Request();
-        request.query(`exec dbo.qwertyuiop ${b["0"]}, ${b["5"]}, ${b["12"]}, ${b["18"]}`, (err2, recordset) => {
+        let query = `exec dbo.qwertyuiop ${b["0"]}, ${b["5"]}, ${b["12"]}, ${b["18"]}`
+        console.log(query, b)
+        request.query(query, (err2, recordset) => {
             if(err2) {
                 console.log(`exec dbo.qwertyuiop ${b["0"]} ${b["5"]} ${b["12"]} ${b["18"]}`, err2)
-                res.send({status: 0, data: [], msg: "failed to execute query."})
+                res.send({status: 0, data: [], msg: "failed to execute query.", error: err2})
+                return
             }
             retaildbqr(recordset.recordset, b)
             res.send({status: 200, msg: "success", data: recordset.recordset, b})
+        })
+    })
+})
+
+app.get('/retaildbtest', (req, res) => {
+    retaildb.connect(retailconnstr, (err) => {
+        if(err) {
+            res.send({status: 0, error: err})
+            return
+        }
+        let query = `SELECT specific_name
+                    FROM INFORMATION_SCHEMA.ROUTINES
+                    WHERE ROUTINE_TYPE = 'PROCEDURE' order by specific_name asc;`
+        let req = new retaildb.Request();
+        req.query(query, (err2, recordset) => {
+            if(err2) {
+                res.send({status: 0, error: err2})
+                return
+            }
+            res.send({status: 200, data: recordset.recordset})
         })
     })
 })
